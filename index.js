@@ -1,5 +1,6 @@
 "use strict";
 
+let net = require('net');
 let http = require('http');
 let portfinder = require('portfinder');
 let ip = require('ip');
@@ -15,12 +16,51 @@ let httpSubscriptionResponseServer;
 
 let subscriptions = new Map();
 
+let portInUse = function(port, callback) {
+    net.createServer()
+        .listen(port, '127.0.0.1')
+        .once('error', function (e) {
+            this.close(function () {
+                callback(e)
+            })
+        })
+        .once('listening', function () {
+            this.close(function () {
+                callback(null)
+            })
+        })
+}
+
+let getPort = function (callback) {
+    const PERMIT_AUTO_FIND_PORT = process.env.NODE_UPNP_SUBSCRIPTION_PERMIT_AUTO_FIND_PORT === 'true' || process.env.PERMIT_AUTO_FIND_PORT === 'true'
+    const PORT = parseInt(process.env.NODE_UPNP_SUBSCRIPTION_PORT || process.env.PORT, 10) || null
+    if (PORT) {
+        if (PORT >= 0) {
+            portInUse(PORT, function(err) {
+                if (err) {
+                    if (PERMIT_AUTO_FIND_PORT) {
+                        portfinder.getPort(callback)
+                    } else {
+                        throw(err)
+                    }
+                } else {
+                    callback(null, PORT)
+                }
+            })
+        } else {
+            throw(new Error('Invalid port number. Please specify a port between 0 and 65535.'))
+        }
+    } else {
+        portfinder.getPort(callback)
+    }
+}
+
 let ensureHttpServer = function (callback) {
     if (httpServerStarting) {
         httpServerEmitter.on('started', callback)
     } else {
         httpServerStarting = true
-        portfinder.getPort(function (err, availablePort) {
+        getPort(function (err, availablePort) {
             httpSubscriptionResponseServer = http.createServer();
             httpServerPort = availablePort;
             httpSubscriptionResponseServer.listen(httpServerPort, () => {
