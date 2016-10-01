@@ -131,13 +131,14 @@ function Subscription(host, port, eventSub, requestedTimeoutSeconds) {
     }.bind(this)
 
     this.init = function init () {
+        let ip = process.env.CALLBACK_IP_ADDRESS || ip.address()
         http.request({
             host: host,
             port: port,
             path: eventSub,
             method: 'SUBSCRIBE',
             headers: {
-                'CALLBACK': "<http://" + ip.address() + ':' + httpServerPort + ">",
+                'CALLBACK': "<http://" + ip + ':' + httpServerPort + ">",
                 'NT': 'upnp:event',
                 'TIMEOUT': 'Second-' + timeoutSeconds
             }
